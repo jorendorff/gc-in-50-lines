@@ -1,5 +1,9 @@
 # GC in 50 lines
 
+Jason Orendorff  
+[Nashville Systems Programming Day](http://nashvillecode.org/)  
+August 16, 2014
+
 ## Intro
 
 All the stuff in your program has to be represented in memory somehow:
