@@ -11,16 +11,17 @@ code, data, arguments, variables.
 The question of how all that is organized is called **memory management**.
 
 Memory management is about knowing where to put things.
-And since your computer's memory is a finite resource,
+And since your computer&rsquo;s memory is a finite resource,
 memory management is also about freeing up memory so it can be reused.
 
-As a programmer you don't do memory management. But somebody has to.
+As an application programmer, you don&rsquo;t do memory management.
+But somebody has to.
 The system does it for you.
 
 It turns out garbage collection is of a piece with allocation
 and other memory management tasks. Not independent.
 The GC we show today will include its own allocator.
-You'll see why.
+You&rsquo;ll see why.
 
 
 
@@ -28,13 +29,13 @@ You'll see why.
 
 ### API
 
-When we design software, it's best to start with the public parts.
+When we design software, it&rsquo;s best to start with the public parts.
 
 What public features does a garbage collector provide to the user?
 
 Just two things.
 
-First, it lets you create new objects. That's called allocating memory.
+First, it lets you create new objects. That&rsquo;s called allocating memory.
 Whenever you make an array, a function, any kind of object
 in your higher-level language of choice,
 the garbage collector makes that possible.
@@ -48,19 +49,20 @@ So in C, the API for creating a new object might look like this:
 Details to be filled in later. C code calls this function,
 and it returns a pointer to a freshly allocated object.
 
-==> Now. What's the other feature a garbage collector has to expose?
-
-(someone will say, "gc")
+==> Now. What&rsquo;s the other feature a garbage collector has to expose?
 
 Wrong!
 
-That's not a feature.
-Rather, it could be; we could expose a function called gc() ---
-Java has something called System.gc() ---
-but that's not something users want.
+I&rsquo;m guessing you said something like
+"free memory" or "deallocate memory" or "perform GC".
+
+That&rsquo;s not a feature.
+Rather, it could be; we could expose a function called
+`gc()`&mdash;Java has something called System.gc()&mdash;but
+that&rsquo;s not something users want.
 What users want is to allocate objects and do stuff with them.
-GC should just happen automatically, as needed,
-and that's how our system will work.
+*GC should just happen automatically,* as needed,
+and that&rsquo;s how our system will work.
 
 OK. So I did say there were two things a GC allocator has to expose.
 The second one is this:
@@ -76,7 +78,7 @@ So then,
 ==> How does the garbage collector know which objects are garbage
 and which are not?
 
-You've probably never once thought about this,
+You&rsquo;ve probably never once thought about this,
 because in all garbage-collected languages,
 the garbage collector knows about every variable.
 
@@ -85,7 +87,7 @@ all global and local variables are stored in some kind of data structure
 and the GC contains code to walk that data structure
 so that the GC can examine every variable.
 If it sees a variable that points to a pony object, it says,
-aha, that pony is still in use; I'd better not collect it.
+aha, that pony is still in use; I&rsquo;d better not collect it.
 Every garbage-collected language stores information *somewhere*
 about all variables
 for the benefit of the collector.
@@ -96,11 +98,11 @@ C++ has no feature "list all the variables" which the GC can use
 to inspect variables.
 
 So to keep things as simple as possible,
-what we'll do is make a single variable
+what we&rsquo;ll do is make a single variable
 
     Object* root = nullptr;
 
-we'll call it "root", for reasons that will become clear later,
+we&rsquo;ll call it "root", for reasons that will become clear later,
 and this variable will be special to the GC.
 
 nullptr, by the way, is one of the C++ ways to spell null.
@@ -108,7 +110,7 @@ nullptr, by the way, is one of the C++ ways to spell null.
 It starts out null, but the program can store
 a pointer to any object in this variable,
 and when GC happens, *that* object will be safe.
-It won't be collected.
+It won&rsquo;t be collected.
 And of course if that object contains a reference to another object,
 well, the program may access that object too ---
 so we also leave *that* object alone. And so on.
@@ -135,12 +137,12 @@ and a way to protect those objects from being collected.
     }
 
 Actually there is just one more thing that our GC will provide,
-and that's a setup function. But we'll get to that later.
+and that&rsquo;s a setup function. But we&rsquo;ll get to that later.
 
 
 ### Object
 
-Next, let's define what an object is.
+Next, let&rsquo;s define what an object is.
 
     struct Object {
 
@@ -157,8 +159,8 @@ An object is simply a record containing two pointers to other objects.
 A typical dynamic language actually has many types of objects of varying sizes,
 and all kinds of bells and whistles around objects and object allocation.
 
-But you'd be surprised how much you can do with just two pointers.
-If you've used Lisp, you probably recognize this as a cons cell.
+But you&rsquo;d be surprised how much you can do with just two pointers.
+If you&rsquo;ve used Lisp, you probably recognize this as a cons cell.
 You can build linked lists and binary trees out of it.
 A function in Lisp is also easily implemented as
 a garbage-collected record containing two pointers:
@@ -166,17 +168,17 @@ one pointer to the code for the function,
 and one pointer to the environment,
 that is, all the variables the function closes over.
 
-So let's go with this for now.
+So let&rsquo;s go with this for now.
 
 OK. We will expose one more function in our garbage collector,
-and that's just a setup function to set everything up.
+and that&rsquo;s just a setup function to set everything up.
 
     void init_heap() {
         ???
     }
 
-OK. This completes the API.
-This is everything that's public,
+This completes the API.
+This is everything that&rsquo;s public,
 everything the application is allowed to see and use.
 
     struct Object {
@@ -194,7 +196,7 @@ everything the application is allowed to see and use.
         ???
     }
 
-And everything we add from now on is "private" -- implementation details.
+Everything we add from now on is "private"&mdash;implementation details.
 
 
 
@@ -202,32 +204,32 @@ And everything we add from now on is "private" -- implementation details.
 
 All right.
 Now is the part where we start implementing the internals of the GC.
-And first of all I want to show you where all these Objects that we're going to manage
+And first of all I want to show you where all these Objects that we&rsquo;re going to manage
 are coming from.
 
     const size_t HEAP_SIZE = 10000;
     Object heap[HEAP_SIZE];
 
-We'll just declare one huge global array of ten thousand objects.
-Or ten million, whatever. It doesn't matter.
-This means it's the operating system's job
+We&rsquo;ll just declare one huge global array of ten thousand objects.
+Or ten million, whatever. It doesn&rsquo;t matter.
+This means it&rsquo;s the operating system&rsquo;s job
 to give us one big slab of memory.
 Operating systems are good at that.
 *Our* job is to parcel this out to the application, one Object per allocate() call,
-and to recycle the Objects that aren't being used anymore.
+and to recycle the Objects that aren&rsquo;t being used anymore.
 
 So how does allocation work?
 There are a great many ways we could do this.
-The design I'm going to show you uses what's called a free list.
+The design I&rsquo;m going to show you uses what&rsquo;s called a free list.
 The key insight here is that
-if there's some memory that the application isn't currently using,
-that memory's just sitting there,
+if there&rsquo;s some memory that the application isn&rsquo;t currently using,
+that memory&rsquo;s just sitting there,
 and the system can use it for whatever it wants.
 And we will.
 
 ==> Who here knows what a linked list is?
 
-OK. What we're going to do is make a linked list
+OK. What we&rsquo;re going to do is make a linked list
 of all the Objects in memory that have *not* been allocated.
 Initially all the Objects in this array will be in one big
 linked list.
@@ -237,12 +239,12 @@ linked list.
             add_to_free_list(&heap[i]);
     }
 
-And when you call allocate, it'll basically just
+And when you call allocate, it&rsquo;ll basically just
 remove any object from the freelist and return it to you.
 
 Now I want you to do this part for me.
 
-Here's the pointer to the first object in the free list:
+Here&rsquo;s the pointer to the first object in the free list:
 
     Object* free_list = NULL;
 
@@ -262,19 +264,19 @@ How can we do that? How about this?
         free_list = object;
     }
 
-==> What's wrong with this?
+==> What&rsquo;s wrong with this?
 
-That's not adding to the free list, that's clobbering the free list.
+That&rsquo;s not adding to the free list, that&rsquo;s clobbering the free list.
 
     void add_to_free_list(Object* object) {
         object->tail = free_list;
         free_list = object;
     }
 
-Right. That's all!
+Right. That&rsquo;s all!
 If you think about this from a performance perspective,
-it's one read from memory,
-because you're reading a global varaible,
+it&rsquo;s one read from memory,
+because you&rsquo;re reading a global varaible,
 and two writes.
 Reading from local variables and arguments is essentially free.
 
@@ -290,7 +292,7 @@ of the code we just wrote!
 
 This is two reads and a write, because symmetry.
 
-And that's it.
+And that&rsquo;s it.
 
     struct Object {
         Object* head;
@@ -327,9 +329,9 @@ Thank you for coming.
 ### When to do GC
 
 So obviously there is just one thing missing from this system.
-It'll work --- we can actually build a program that uses this,
-and call allocate(), and get objects, and run code ---
-but eventually the free list becomes empty.
+It&rsquo;ll work&mdash;we can actually build a program that uses this,
+and call allocate(), and get objects, and run code&mdash;but
+eventually the free list becomes empty.
 
 ==> Then what will happen?
 
@@ -339,7 +341,7 @@ In allocate(), we need to detect that the free list is empty.
 
 Yes, the free_list variable will be null.
 
-So if it's null, that would be a good time to garbage collection,
+So if it&rsquo;s null, that would be a good time to garbage collection,
 try and free up some memory.
 
     Object* allocate() {
@@ -351,13 +353,13 @@ try and free up some memory.
         return p;
     }
 
-Of course it's always possible that the application
-simply requires more memory than we've got.
+Of course it&rsquo;s always possible that the application
+simply requires more memory than we&rsquo;ve got.
 Maybe we do garbage collection and nothing shakes loose.
 ==> And then what?
 
-That's an out of memory error.
-So I'll have allocate() return a null pointer.
+That&rsquo;s an out of memory error.
+So I&rsquo;ll have allocate() return a null pointer.
 Of course there are other things you could do here,
 like throw an exception,
 or beg the operating system for more memory,
@@ -379,13 +381,13 @@ or whatever.
 
 We have reached the garbage collection portion of the program.
 
-The kind of GC I'm going to show you is very simple.
-It's called a mark and sweep GC.
+The kind of GC I&rsquo;m going to show you is very simple.
+It&rsquo;s called a mark and sweep GC.
 And it works like this...
 (explanation)
 
 To do this, we need an extra bit per object called the "mark bit".
-For simplicity's sake, let's just stick it on the Object.
+For simplicity&rsquo;s sake, let&rsquo;s just stick it on the Object.
 
     struct Object {
         Object* head;
@@ -398,19 +400,19 @@ For simplicity's sake, let's just stick it on the Object.
 OK. So our scheme is going to be,
 first, make sure the mark bit is set to false for all objects,
 second, mark all objects that the application is still using,
-third, collect all objects that aren't marked.
+third, collect all objects that aren&rsquo;t marked.
 
 First part first:
 
             for (int i = 0; i < HEAP_SIZE; i++)       // 1.  clear all mark bits
                 heap[i].marked = false;
 
-Then the mark part. I'm going to make a function to do this for us,
+Then the mark part. I&rsquo;m going to make a function to do this for us,
 so we only supply the root and it does the whole "flood fill" part.
 
             mark(root);                               // 2.  mark phase
 
-Lastly, the sweeping part. That's easy too:
+Lastly, the sweeping part. That&rsquo;s easy too:
 
             for (int i = 0; i < HEAP_SIZE; i++)       // 3.  sweep phase
                 if (!heap[i].marked)
@@ -443,7 +445,7 @@ so that the sweep phase knows not to collect it.
         obj->marked = true;
     }
 
-==> What's wrong with that?
+==> What&rsquo;s wrong with that?
 
     void mark(Object* obj) {
         mark(obj->head);
@@ -451,7 +453,7 @@ so that the sweep phase knows not to collect it.
         obj->marked = true;
     }
 
-==> What's wrong with that?
+==> What&rsquo;s wrong with that?
 
     void mark(Object* obj) {
         if (obj == nullptr)
@@ -461,7 +463,7 @@ so that the sweep phase knows not to collect it.
         obj->marked = true;
     }
 
-==> What's wrong with that?
+==> What&rsquo;s wrong with that?
 
     void mark(Object* obj) {
         if (obj == nullptr || obj->marked)
@@ -471,7 +473,7 @@ so that the sweep phase knows not to collect it.
         obj->marked = true;
     }
 
-==> What's wrong with that?
+==> What&rsquo;s wrong with that?
 
     void mark(Object* obj) {
         if (obj == nullptr || obj->marked)
@@ -481,7 +483,7 @@ so that the sweep phase knows not to collect it.
         mark(obj->tail);
     }
 
-And we're done.
+And here&rsquo;s where we stand now.
 
     struct Object {
         Object* head;
@@ -527,12 +529,12 @@ And we're done.
         return p;
     }
 
-We're sitting at about 48 lines right now, which means we're not done.
+We&rsquo;re sitting at about 48 lines right now, which means we&rsquo;re not done.
 I suppose we could add some documentation.
 
     // gc.cpp - A simplistic GC in 50 lines of code (use init_heap, allocate, and root)
 
-There's still one lovely little bug in here, which is that if you allocate an object,
+There&rsquo;s still one lovely little bug in here, which is that if you allocate an object,
 then try to allocate another object, the second allocation fails!
 
 ==> Why? How can we fix that?
@@ -544,14 +546,14 @@ The fix is to null out p->tail before returning.)
 
 ## Toy GC vs. real GC
 
-Now that we've seen a garbage collector in just 50 lines of code,
+Now that we&rsquo;ve seen a garbage collector in just 50 lines of code,
 the question arises, are all garbage collectors this simple?
 
 The answer is no... garbage collectors are some of the most complex
 software we make. A GC can be thousands of lines of code.
 
 Why is this garbage collector not serious?
-What's wrong with it?
+What&rsquo;s wrong with it?
 
 *   **Objects are just two pointers.**
     This is obviously pretty limiting, but now that we have it working,
@@ -559,7 +561,7 @@ What's wrong with it?
     You can add an int here, and a float there,
     whatever your application needs,
     and the GC will continue to work just fine.
-    So that's not really a problem.
+    So that&rsquo;s not really a problem.
 
 *   **All objects have to be the same size.**
     This is a problem.
@@ -578,15 +580,15 @@ What's wrong with it?
     There are other approaches, too.
 
 *   **The mark bit wastes 63 bits per object.**
-    If that doesn't sound like a lot,
-    that just means you're not a systems programmer.
+    If that doesn&rsquo;t sound like a lot,
+    that just means you&rsquo;re not a systems programmer.
     A real implementation might have separate pages just for mark bits,
     with the bits all packed together, 8 bits per byte, no waste.
 
     Or it might be possible to find a spare bit in the object.
-    For example, we've got two pointers fields, and it turns out
+    For example, we&rsquo;ve got two pointers fields, and it turns out
     not every bit of a pointer value is really used on x86-64.
-    So there's maybe 38 bits in this struct that are always zero.
+    So there are maybe 38 bits in this struct that are always zero.
     You could use one of those as the mark bit.
 
 *   **The heap size is fixed.**
@@ -596,20 +598,20 @@ What's wrong with it?
 
     Then, as the application runs, and the heap fills up,
     and the GC notices that pretty much everything is live
-    and it's not able to collect a lot of objects each time GC happens,
+    and it&rsquo;s not able to collect a lot of objects each time GC happens,
     it can just ask the operating system for more memory.
 
 *   **Marking is implemented recursively.**
     This means if you create a long linked list,
-    the next GC will overflow the stack and you'll crash.
+    the next GC will overflow the stack and you&rsquo;ll crash.
 
     (Very deep recursion causes crashes in C++.)
 
     Fixing this would be a good exercise
     if you really want to cement all this in your memory.
-    There's a standard trick for converting recursive algorithms to iterative ones,
+    There&rsquo;s a standard trick for converting recursive algorithms to iterative ones,
     using an explicit stack;
-    alternatively, there's a nonobvious trick that involves reversing pointers.
+    alternatively, there&rsquo;s a nonobvious trick that involves reversing pointers.
 
 *   **There is only one root.**
 
@@ -629,31 +631,31 @@ What's wrong with it?
 
     C++ is a huge pain because the C++ compiler
     does not coordinate with GC at all.
-    Why would it? C++ doesn't have any built-in GC.
-    So you really don't want a big C++ codebase using a GC,
-    because if the compiler won't integrate with the GC,
+    Why would it? C++ doesn&rsquo;t have any built-in GC.
+    So you really don&rsquo;t want a big C++ codebase using a GC,
+    because if the compiler won&rsquo;t integrate with the GC,
     how do you get a root set?
-    Guess what. If the compiler won't do it for you,
-    user code has to tell the GC what it's doing,
-    which variables it's using.
+    Guess what. If the compiler won&rsquo;t do it for you,
+    user code has to tell the GC what it&rsquo;s doing,
+    which variables it&rsquo;s using.
     This means you end up using smart pointer classes
     for all pointers from application code to GC-allocated objects.
-    It's an incredible pain,
+    It&rsquo;s an incredible pain,
     but this is what V8 does, this is what Firefox does.
 
-*   **There's no instrumentation.**
+*   **There&rsquo;s no instrumentation.**
     A real GC is full of code to measure its own performance
-    as it's being used in a real program.
+    as it&rsquo;s being used in a real program.
     How often is GC happening? How long does it take?
     How many objects are reclaimed each time?
 
     This information is really useful
-    when you're trying to make GC as smooth and fast as possible.
+    when you&rsquo;re trying to make GC as smooth and fast as possible.
 
-*   **It's slow.**
+*   **It&rsquo;s slow.**
     OK, now we get to the nitty-gritty.
 
-    This is what's called a stop-the-world garbage collector.
+    This is what&rsquo;s called a stop-the-world garbage collector.
     This allocate function is normally very fast,
     but whenever it determines that GC is needed,
     it walks the entire live object graph,
@@ -663,13 +665,13 @@ What's wrong with it?
 
     This GC only has ten thousand objects in the heap.
     On my laptop, this GC takes up to 100 microseconds to run.
-    That's really fast. That's a tenth of a millisecond.
+    That&rsquo;s really fast. That&rsquo;s a tenth of a millisecond.
     But now scale it up.
     Say we had a larger heap, with two million objects in it.
     GC would be 20 milliseconds.
     If you do that, no matter how rare it is,
-    in a game that's trying to maintain 60 frames per second,
-    you've just dropped a frame.
+    in a game that&rsquo;s trying to maintain 60 frames per second,
+    you&rsquo;ve just dropped a frame.
     Now think about the same GC running on your phone.
 
     Performance is the reason GC is a whole field of study,
@@ -680,9 +682,9 @@ What's wrong with it?
     So there are a couple of techniques that are
     kind of the current state of the art.
 
-    **Incremental GC** spreads out the work so it doesn't happen all at once.
+    **Incremental GC** spreads out the work so it doesn&rsquo;t happen all at once.
     This can save you from dropping frames.
-    The user doesn't notice GC pauses
+    The user doesn&rsquo;t notice GC pauses
     if each pause is individually very short.
 
     **Generational GC** is harder to explain.
@@ -696,15 +698,15 @@ What's wrong with it?
     These two techniques can be used together.
     Both are well-understood
     and have many high-quality implementations.
-    But it's tricky stuff.
+    But it&rsquo;s tricky stuff.
     Some amazing cleverness is required to get these techniques to be
     both correct and fast.
 
 Thanks for taking this trip through a simple garbage collector with me.
 
-I like this example because it's short but it's also packed with cool stuff,
-there's linked lists, recursion, pointers, graph algorithms&mdash;
-it's rather wonderful that all this cool stuff turns out to be so useful.
+I like this example because it&rsquo;s short but it&rsquo;s also packed with cool stuff,
+you&rsquo;ve got linked lists, recursion, pointers, graph algorithms&mdash;
+it&rsquo;s rather wonderful that all this cool stuff turns out to be so useful.
 
 The code for this is available from my github account:
 
