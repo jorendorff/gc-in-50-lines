@@ -619,8 +619,9 @@ What&rsquo;s wrong with it?
 *   **There is only one root.**
 
     Real garbage collectors have a "root set"
-    consisting of *all* the objects the program still needs.
-    The root set needs to contain all local variables
+    consisting of *all* the objects
+    currently reachable from outside the heap.
+    That is, the root set contains all local variables
     and all global or static variables
     that point to objects.
 
@@ -685,12 +686,12 @@ What&rsquo;s wrong with it?
     So there are a couple of techniques that are
     kind of the current state of the art.
 
-    **Incremental GC** spreads out the work so it doesn&rsquo;t happen all at once.
+    *Incremental GC* spreads out the work so it doesn&rsquo;t happen all at once.
     This can save you from dropping frames.
     The user doesn&rsquo;t notice GC pauses
     if each pause is individually very short.
 
-    **Generational GC** is harder to explain.
+    *Generational GC* is harder to explain.
     It takes advantage of the weird fact that in a modern language,
     most objects are extremely short-lived.
     This means if you focus on just the most recently allocated objects,
