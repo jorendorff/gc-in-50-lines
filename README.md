@@ -14,9 +14,12 @@ Memory management is about knowing where to put things.
 And since your computer&rsquo;s memory is a finite resource,
 memory management is also about freeing up memory so it can be reused.
 
-As an application programmer, you don&rsquo;t do memory management.
+As an application programmer, you don&rsquo;t do memory management
+for every single object in your program.
 But somebody has to.
-The system does it for you.
+The system does it for you. Right?
+
+How does that work?
 
 It turns out garbage collection is of a piece with allocation
 and other memory management tasks. Not independent.
@@ -708,7 +711,17 @@ I like this example because it&rsquo;s short but it&rsquo;s also packed with coo
 you&rsquo;ve got linked lists, recursion, pointers, graph algorithms&mdash;
 it&rsquo;s rather wonderful that all this cool stuff turns out to be so useful.
 
-The code for this is available from my github account:
 
-    https://github.com/jorendorff/gc-in-50-lines
 
+## Running the code
+
+You can get the code and build it like this:
+
+    git clone git@github.com:jorendorff/gc-in-50-lines.git
+    cd gc-in-50-lines
+    make
+    ./gctests
+
+It works.
+But the magic is in the reading and thinking,
+and not so much the running.
