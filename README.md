@@ -8,7 +8,8 @@ August 16, 2014
 
 All the stuff in your program has to be represented in memory somehow:
 code, data, arguments, variables.
-The question of how all that is organized is called **memory management**.
+The task of finding a place for all that stuff
+and keeping it organized is called **memory management**.
 
 Memory management is about knowing where to put things.
 And since your computer&rsquo;s memory is a finite resource,
@@ -20,6 +21,13 @@ But somebody has to.
 The system does it for you. Right?
 
 How does that work?
+
+Well, there are several ways.
+But the usual approach these days is garbage collection.
+There's some software in the system that automatically takes objects
+that your program isn't using anymore and reclaims that memory.
+The tricky part, of course, is figuring out which objects
+aren't being used.
 
 It turns out garbage collection is of a piece with allocation
 and other memory management tasks. Not independent.
@@ -38,7 +46,8 @@ What public features does a garbage collector provide to the user?
 
 Just two things.
 
-First, it lets you create new objects. That&rsquo;s called allocating memory.
+First, it lets you create new objects.
+That&rsquo;s called allocating memory.
 Whenever you make an array, a function, any kind of object
 in your higher-level language of choice,
 the garbage collector makes that possible.
@@ -51,6 +60,13 @@ So in C, the API for creating a new object might look like this:
 
 Details to be filled in later. C code calls this function,
 and it returns a pointer to a freshly allocated object.
+
+It&rsquo;s not this function&rsquo;s responsibility
+to populate the object&rsquo;s fields.
+Your constructor or initialize method will do that.
+This is called before the constructor,
+and all it does is find some memory that&rsquo;s not already being used,
+set it aside, and return the address.
 
 ==> Now. What&rsquo;s the other feature a garbage collector has to expose?
 
@@ -687,8 +703,8 @@ What&rsquo;s wrong with it?
     kind of the current state of the art.
 
     *Incremental GC* spreads out the work so it doesn&rsquo;t happen all at once.
-    This can save you from dropping frames.
-    The user doesn&rsquo;t notice GC pauses
+    This doesn&rsquo;t actually make your system faster, but
+    the user doesn&rsquo;t notice GC pauses
     if each pause is individually very short.
 
     *Generational GC* is harder to explain.
