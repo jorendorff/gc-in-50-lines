@@ -42,6 +42,14 @@ You&rsquo;ll see why.
 
 When we design software, it&rsquo;s best to start with the public parts.
 
+In fact, a great way is to start with tests,
+and the GC we&rsquo;re looking at today has
+[a bunch of tests](https://github.com/jorendorff/gc-in-50-lines/blob/master/gctests.cpp),
+written in C++.
+If you look at the tests, you'll see what public features
+the garbage collector needs to provide.
+
+But we can also just figure out the feature set from scratch.
 What public features does a garbage collector provide to the user?
 
 Just two things.
@@ -360,7 +368,7 @@ In allocate(), we need to detect that the free list is empty.
 
 Yes, the free_list variable will be null.
 
-So if it&rsquo;s null, that would be a good time to garbage collection,
+So if it&rsquo;s null, that would be a good time to do garbage collection,
 try and free up some memory.
 
     Object* allocate() {
@@ -377,12 +385,17 @@ simply requires more memory than we&rsquo;ve got.
 Maybe we do garbage collection and nothing shakes loose.
 ==> And then what?
 
-That&rsquo;s an out of memory error.
-So I&rsquo;ll have allocate() return a null pointer.
-Of course there are other things you could do here,
-like throw an exception,
-or beg the operating system for more memory,
-or whatever.
+Well, that means you&rsquo;re out of memory!
+There are several things you could do here.
+You could ask the operating system for some more memory.
+You could throw an out-of-memory exception.
+
+Since I&rsquo;m trying to keep things simple,
+I&rsquo;ll just have `allocate()` return a null pointer here.
+This is bad because it means the application has to check the return value
+every time it calls `allocate()`.
+You never know when the system is going to run out of memory.
+But for our toy system, it&rsquo;ll be fine.
 
     Object* allocate() {
         if (free_list == nullptr) {  // out of memory

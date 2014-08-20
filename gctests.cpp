@@ -1,6 +1,55 @@
-// Very rudimentary test program for gc.cpp.
+// gctests.cpp - Very rudimentary test program for gc.cpp.
 
+// Start by including the file containing the code we're testing.
+//
+// This is weird.  Ordinarily you wouldn't #include a .cpp file directly.  The
+// C++ way is to use a header file (we would call it "gc.h") that includes only
+// the public API.  But the whole point here is to keep the code as tiny as
+// possible, and directly including the .cpp file lets us shave off a couple
+// lines.
+//
+// (Also, some of these tests use HEAP_SIZE which is a private detail of the
+// garbage collector -- we are sort of busting abstractions here anyway.)
 #include "gc.cpp"
+
+// ## The GC API
+//
+// Here are the API features we're getting with that #include:
+//
+//     struct Object {       // The type of all objects.
+//         Object* head;     // Two fields, pointers to other Objects.
+//         Object* tail;
+//         ...               // (and a private field used only by the GC)
+//     };
+//     Object* allocate();   // Function that returns a pointer to a fresh new Object,
+//                           // or null if we're out of memory.
+//     Object* root;         // Public variable (!) used to protect an Object from GC.
+//
+// Note that there is a tricky rule about how to use allocate() and root.
+// allocate() will occasionally perform GC, which will wipe out all objects
+// that our program isn't using.  But how does it know if we're using an object
+// or not?  Here is the rule:
+//
+//     Whenever we call allocate(), it MAY wipe out all objects
+//     that are not reachable from `root`.
+//
+//     Therefore our program MUST make sure all objects we care about are
+//     reachable from `root` BEFORE each call to allocate().
+//
+// This tricky rule isn't necessary in normal programming languages like JS or
+// C#, because those languages run in virtual machines that automatically keep
+// track of all local variables and even temporary results that might be used
+// in the future of the program.  So when it's time to do GC, the virtual
+// machine is prepared to answer the question "which objects does this program
+// still have a reference to?"
+//
+// C++ isn't like that. In optimized builds, it typically doesn't do any
+// bookkeeping at all on local variables.  The garbage collector therefore has
+// no way to ask C++ "what's the root set?" i.e. "which objects does our
+// program still have a reference to?"  The only way to proceed is for our
+// program to *tell* the GC what the root set is, and that's what `root`
+// represents.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -15,6 +64,10 @@ void test_can_allocate_twice() {
     Object* obj1 = allocate();
     assert(obj1);
 
+    // Now we're about to allocate another object. This is the first time the
+    // API rule comes into play: if we do not make sure obj1 is reachable from root,
+    // then our second call to allocate() would be permitted to perform GC
+    // and reclaim obj1. In this case we don't want that to happen.
     root = obj1;
 
     // Allocate a second object.  Since obj1 is the root, obj2 must be a
@@ -68,6 +121,8 @@ void test_full_heap() {
     // time it's called.
     for (int i = 0; i < 4; i++)
         assert(allocate() == nullptr);
+
+    root = nullptr;
 }
 
 // Test allocate()'s behavior when the heap is only almost full.
@@ -84,6 +139,8 @@ void test_nearly_full_heap() {
     assert(last);
     for (int i = 0; i < 10; i++)
         assert(allocate() == last);
+
+    root = nullptr;
 }
 
 // Helper function used by some of the tests below.  Force garbage collection
