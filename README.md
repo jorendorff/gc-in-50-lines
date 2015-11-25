@@ -303,7 +303,7 @@ That&rsquo;s not adding to the free list, that&rsquo;s clobbering the free list.
 Right. That&rsquo;s all!
 If you think about this from a performance perspective,
 it&rsquo;s one read from memory,
-because you&rsquo;re reading a global varaible,
+because you&rsquo;re reading a global variable,
 and two writes.
 Reading from local variables and arguments is essentially free.
 
