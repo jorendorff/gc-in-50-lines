@@ -383,6 +383,7 @@ try and free up some memory.
 Of course it&rsquo;s always possible that the application
 simply requires more memory than we&rsquo;ve got.
 Maybe we do garbage collection and nothing shakes loose.
+
 ==> And then what?
 
 Well, that means you&rsquo;re out of memory!
@@ -566,13 +567,15 @@ I suppose we could add some documentation.
 
     // gc.cpp - A simplistic GC in 50 lines of code (use init_heap, allocate, and root)
 
-There&rsquo;s still one lovely little bug in here, which is that if you allocate an object,
-then try to allocate another object, the second allocation fails!
+There&rsquo;s still one lovely little bug in here, which is that
+if you allocate an object and root it,
+then allocate more objects without rooting them until GC occurs,
+GC fails to collect anything!
 
 ==> Why? How can we fix that?
 
-(The bug is that the allocate() returns an object that entrains the entire free list.
-The fix is to null out p->tail before returning.)
+(The bug is that the first `allocate()` call returns an object that entrains the entire free list.
+The fix is to null out `p->tail` before returning.)
 
 
 
