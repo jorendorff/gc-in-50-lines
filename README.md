@@ -157,7 +157,7 @@ So these are the two public things that a GC provides.
 A way to allocate objects,
 and a way to protect those objects from being collected.
 
-    Object* root = NULL;
+    Object* root = nullptr;
 
     Object* allocate() {
         ???
@@ -213,7 +213,7 @@ everything the application is allowed to see and use.
         Object* tail;
     };
 
-    Object* root = NULL;
+    Object* root = nullptr;
 
     void init_heap() {
         ???
@@ -273,7 +273,7 @@ Now I want you to do this part for me.
 
 Here&rsquo;s the pointer to the first object in the free list:
 
-    Object* free_list = NULL;
+    Object* free_list = nullptr;
 
 When the process starts up, the free list is empty,
 and init_heap() is going to fill it up for us.
@@ -328,8 +328,8 @@ And that&rsquo;s it.
 
     const int HEAP_SIZE = 10000;
     Object heap[HEAP_SIZE];
-    Object* free_list = NULL;
-    Object* root = NULL;
+    Object* free_list = nullptr;
+    Object* root = nullptr;
 
     void add_to_free_list(Object* object) {
         object->tail = free_list;
@@ -525,8 +525,8 @@ And here&rsquo;s where we stand now.
 
     const int HEAP_SIZE = 10000;
     Object heap[HEAP_SIZE];
-    Object* free_list = NULL;
-    Object* root = NULL;
+    Object* free_list = nullptr;
+    Object* root = nullptr;
 
     void add_to_free_list(Object* object) {
         object->tail = free_list;
