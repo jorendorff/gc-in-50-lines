@@ -266,7 +266,6 @@ int main() {
     test_root_self_references();
     test_root_cycle();
     test_unreachable_cycle();
-    test_nearly_full_heap();
 
     // Each test contains assertions that abort on failure, so if we get here,
     // all assertions passed.
